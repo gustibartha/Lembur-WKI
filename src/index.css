@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Animations ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.4s ease-out both; }
+.animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-down { animation: slideDown 0.3s ease-out both; }
+.animate-float { animation: float 18s ease-in-out infinite; }
+.animate-float-delay { animation: float 22s ease-in-out infinite reverse; }
+.animate-shimmer {
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0.18) 55%, transparent 65%);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite linear;
+}
+.animate-pulse-glow { animation: pulse-glow 2s infinite; }
+
+/* Stagger helper */
+.stagger > * { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 40ms; }
+.stagger > *:nth-child(2) { animation-delay: 80ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 160ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 240ms; }
+.stagger > *:nth-child(7) { animation-delay: 280ms; }
+
+/* Smooth scrollbar */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(161, 161, 170, 0.3);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(161, 161, 170, 0.5);
+}
+
+/* Subtle card hover lift */
+.lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s;
+}
+.lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Glow ring for primary CTAs */
+.glow-amber {
+  box-shadow:
+    0 1px 2px rgba(251, 191, 36, 0.2),
+    0 4px 12px rgba(251, 191, 36, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.glow-amber:hover {
+  box-shadow:
+    0 1px 2px rgba(251, 191, 36, 0.3),
+    0 6px 20px rgba(251, 191, 36, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  background: #2a2a33;
+}
+
+html:not(.dark) {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background: white !important;
+    height: auto !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .surat-modal,
+  .surat-modal * {
+    visibility: visible !important;
+  }
+  .surat-modal {
+    position: static !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+  }
+  .surat-sheet {
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .surat-toolbar {
+    display: none !important;
+  }
+  .surat-printable {
+    padding: 1.5cm !important;
+  }
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+}
+

@@ -1,0 +1,11 @@
+node_modules
+dist
+.vite
+.vercel
+.DS_Store
+*.log
+
+# Env — jangan commit kredensial
+.env
+.env.local
+.env.*.local
