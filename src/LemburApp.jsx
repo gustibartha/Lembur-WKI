@@ -1521,7 +1521,7 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
     kategori: user.kategoriDefault || "SPL",
     tipe: "Lembur",
     bagian: user.bagian || "",
-    pekerjaan: user.pekerjaan || "",
+    pekerjaan: "",
     tujuan: "",
     tanggalMulai: today,
     jamMulai: "18:00",
@@ -1535,9 +1535,22 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
     ttdPekerja: null,
   });
   const [showQR, setShowQR] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
+  const [lewatTengahMalam, setLewatTengahMalam] = useState(false);
   const isWater = form.kategori === "WaterIntake";
   const isPengemudi = form.kategori === "Pengemudi";
   const isTAD = isWater || isPengemudi;
+
+  // Jaga tanggal selesai = tanggal mulai kalau tidak lewat tengah malam
+  useEffect(() => {
+    if (!lewatTengahMalam) {
+      setForm((f) =>
+        f.tanggalSelesai === f.tanggalMulai
+          ? f
+          : { ...f, tanggalSelesai: f.tanggalMulai }
+      );
+    }
+  }, [lewatTengahMalam, form.tanggalMulai]);
 
   const durasi = useMemo(
     () =>
@@ -1567,6 +1580,36 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Helper: tambah jam ke "HH:MM", info kalau lewat hari
+  const tambahJam = (jamStr, hours) => {
+    const [h, m] = (jamStr || "00:00").split(":").map(Number);
+    const total = h * 60 + m + hours * 60;
+    const lewatHari = total >= 24 * 60;
+    const mod = ((total % 1440) + 1440) % 1440;
+    const nh = String(Math.floor(mod / 60)).padStart(2, "0");
+    const nm = String(mod % 60).padStart(2, "0");
+    return { jam: `${nh}:${nm}`, lewatHari };
+  };
+  const tambahHari = (iso, n) => {
+    const d = new Date(`${iso}T00:00:00`);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // Set jam selesai berdasar durasi cepat (dari jam mulai)
+  const setDurasiCepat = (hours) => {
+    const { jam, lewatHari } = tambahJam(form.jamMulai, hours);
+    if (lewatHari) setLewatTengahMalam(true);
+    setForm((f) => ({
+      ...f,
+      jamSelesai: jam,
+      tanggalSelesai: lewatHari ? tambahHari(f.tanggalMulai, 1) : f.tanggalMulai,
+    }));
+  };
+
+  const PRESET_MULAI = ["08:00", "17:00", "18:00", "22:00"];
+  const PRESET_DURASI = [1, 2, 3, 4];
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 pt-2">
@@ -1594,8 +1637,8 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
         </div>
       </div>
 
-      <div className="text-[11px] text-zinc-500 flex items-center gap-1" style={mono}>
-        <span className="text-red-500">*</span>
+      <div className="text-[11px] text-zinc-400 flex items-center gap-1" style={mono}>
+        <span className="text-amber-500">*</span>
         <span>wajib diisi</span>
       </div>
 
@@ -1630,22 +1673,26 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
         </FormSection>
       )}
 
-      {/* Identitas */}
-      <FormSection title="Identitas" mono={mono} serif={serif}>
-        <Field label="Nama" mono={mono}>
-          <ReadOnlyValue value={user.nama} mono={mono} />
-        </Field>
-        {!isTAD && (
-          <Field label="Bagian" mono={mono}>
-            <input
-              value={form.bagian}
-              onChange={(e) => set("bagian", e.target.value)}
-              placeholder="cth. IT Support"
-              className={inputCls}
-            />
-          </Field>
-        )}
-        <Field label="Pekerjaan" mono={mono} required>
+      {/* Identitas ringkas */}
+      <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-amber-50 to-white dark:from-amber-400/10 dark:to-zinc-800/30 ring-1 ring-amber-200/50 dark:ring-white/5 p-4">
+        <div
+          className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 text-zinc-950 flex items-center justify-center text-xl shadow-md shadow-amber-500/25 shrink-0"
+          style={serif}
+        >
+          {user.nama.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{user.nama}</div>
+          <div className="text-xs text-zinc-500 truncate" style={mono}>
+            {user.jabatan || user.pekerjaan || "Pekerja"}
+            {user.nomorInduk ? ` · ${user.nomorInduk}` : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* Pekerjaan */}
+      <FormSection title="Pekerjaan Lembur" mono={mono} serif={serif}>
+        <Field label="Uraian pekerjaan" mono={mono} required>
           <input
             value={form.pekerjaan}
             onChange={(e) => set("pekerjaan", e.target.value)}
@@ -1674,30 +1721,46 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
 
       {/* Waktu Lembur */}
       <FormSection title="Waktu Lembur" mono={mono} serif={serif}>
+        <Field label="Tanggal" mono={mono} required>
+          <input
+            type="date"
+            value={form.tanggalMulai}
+            onChange={(e) => set("tanggalMulai", e.target.value)}
+            className={inputCls}
+            style={mono}
+          />
+        </Field>
+
+        {/* Preset jam mulai */}
+        <div>
+          <div className="block text-[12px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500 mb-1.5">
+            Jam mulai cepat
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {PRESET_MULAI.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => set("jamMulai", t)}
+                className={`py-2.5 text-sm rounded-xl transition ${
+                  form.jamMulai === t
+                    ? "bg-gradient-to-br from-amber-300 to-amber-500 text-zinc-950 font-semibold shadow-sm shadow-amber-500/20"
+                    : "bg-zinc-50 dark:bg-zinc-900/40 ring-1 ring-zinc-200/70 dark:ring-white/5 text-zinc-500 hover:ring-amber-400/50"
+                }`}
+                style={mono}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Tanggal Mulai" mono={mono} required>
-            <input
-              type="date"
-              value={form.tanggalMulai}
-              onChange={(e) => set("tanggalMulai", e.target.value)}
-              className={inputCls}
-              style={mono}
-            />
-          </Field>
           <Field label="Jam Mulai" mono={mono} required>
             <input
               type="time"
               value={form.jamMulai}
               onChange={(e) => set("jamMulai", e.target.value)}
-              className={inputCls}
-              style={mono}
-            />
-          </Field>
-          <Field label="Tanggal Selesai" mono={mono} required>
-            <input
-              type="date"
-              value={form.tanggalSelesai}
-              onChange={(e) => set("tanggalSelesai", e.target.value)}
               className={inputCls}
               style={mono}
             />
@@ -1713,6 +1776,68 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
           </Field>
         </div>
 
+        {/* Durasi cepat */}
+        <div>
+          <div className="block text-[12px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500 mb-1.5">
+            Durasi cepat <span className="text-zinc-300 dark:text-zinc-600">(dari jam mulai)</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {PRESET_DURASI.map((h) => {
+              const aktif = Math.round(durasi) === h && durasi > 0;
+              return (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => setDurasiCepat(h)}
+                  className={`py-2.5 text-sm rounded-xl transition flex items-center justify-center gap-1 ${
+                    aktif
+                      ? "bg-gradient-to-br from-amber-300 to-amber-500 text-zinc-950 font-semibold shadow-sm shadow-amber-500/20"
+                      : "bg-zinc-50 dark:bg-zinc-900/40 ring-1 ring-zinc-200/70 dark:ring-white/5 text-zinc-500 hover:ring-amber-400/50"
+                  }`}
+                  style={mono}
+                >
+                  +{h}j
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Toggle lewat tengah malam */}
+        <button
+          type="button"
+          onClick={() => setLewatTengahMalam((v) => !v)}
+          className="flex items-center gap-2 text-xs text-zinc-500 hover:text-amber-500 transition"
+        >
+          <span
+            className={`w-9 h-5 rounded-full transition relative ${
+              lewatTengahMalam ? "bg-amber-400" : "bg-zinc-300 dark:bg-zinc-600"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${
+                lewatTengahMalam ? "left-4.5" : "left-0.5"
+              }`}
+              style={{ left: lewatTengahMalam ? "18px" : "2px" }}
+            />
+          </span>
+          <span className="text-[12px] font-medium tracking-wide">
+            Lewat tengah malam (selesai beda hari)
+          </span>
+        </button>
+
+        {lewatTengahMalam && (
+          <Field label="Tanggal Selesai" mono={mono} required>
+            <input
+              type="date"
+              value={form.tanggalSelesai}
+              onChange={(e) => set("tanggalSelesai", e.target.value)}
+              className={inputCls}
+              style={mono}
+            />
+          </Field>
+        )}
+
         <Field label="Jenis Hari" mono={mono}>
           <div className="grid grid-cols-2 gap-2">
             {["Hari Kerja", "Hari Libur"].map((j) => (
@@ -1720,16 +1845,16 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
                 key={j}
                 type="button"
                 onClick={() => set("jenis", j)}
-                className={`py-3 text-sm rounded-lg border transition ${
+                className={`py-3.5 text-sm rounded-xl transition ${
                   form.jenis === j
-                    ? "bg-amber-400 text-zinc-950 border-amber-400 font-medium"
-                    : "bg-stone-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400"
+                    ? "bg-gradient-to-br from-amber-300 to-amber-500 text-zinc-950 font-semibold shadow-sm shadow-amber-500/20"
+                    : "bg-zinc-50 dark:bg-zinc-900/40 ring-1 ring-zinc-200/70 dark:ring-white/5 text-zinc-500"
                 }`}
               >
                 {j}
                 <div
                   className={`text-[10px] mt-0.5 ${
-                    form.jenis === j ? "text-zinc-900/70" : "text-zinc-500"
+                    form.jenis === j ? "text-zinc-900/70" : "text-zinc-400"
                   }`}
                   style={mono}
                 >
@@ -1740,11 +1865,11 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
           </div>
         </Field>
 
-        <div className="bg-stone-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg p-3 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-widest text-zinc-500" style={mono}>
-            Total Durasi
+        <div className="bg-zinc-50 dark:bg-zinc-900/40 rounded-xl p-3.5 flex items-center justify-between">
+          <span className="text-[12px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500">
+            Total durasi
           </span>
-          <span className="text-base" style={serif}>
+          <span className="text-lg" style={serif}>
             {durasi > 0 ? (
               <>
                 {durasi.toFixed(2)}
@@ -1761,140 +1886,159 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
         </div>
       </FormSection>
 
-      {/* Hasil & Keterangan */}
-      <FormSection
-        title={isTAD ? "Keterangan" : "Hasil & Keterangan"}
-        mono={mono}
-        serif={serif}
-      >
-        {!isTAD && (
-          <Field label="Hasil" mono={mono}>
-            <textarea
-              value={form.hasil}
-              onChange={(e) => set("hasil", e.target.value)}
-              placeholder="cth. 12 titik kabel terpasang, semua aktif"
-              rows={2}
-              className={inputCls + " resize-none"}
-            />
-          </Field>
-        )}
-        <Field label="Keterangan" mono={mono}>
-          <textarea
-            value={form.keterangan}
-            onChange={(e) => set("keterangan", e.target.value)}
-            placeholder={isTAD ? "cth. OK / izin / sakit" : "catatan tambahan (opsional)"}
-            rows={2}
-            className={inputCls + " resize-none"}
-          />
-        </Field>
-        <Field
-          label={isTAD ? "Koordinator Regu" : "Penanggung Jawab"}
-          mono={mono}
-        >
-          <input
-            value={form.penanggungJawab}
-            onChange={(e) => set("penanggungJawab", e.target.value)}
-            placeholder={
-              isPengemudi
-                ? "cth. Wahyudi (Kepala Pengemudi)"
-                : isWater
-                ? "cth. Earlan S."
-                : "cth. Rudi (Supervisor IT)"
-            }
-            className={inputCls}
-          />
-        </Field>
-        <Field label="Bukti (foto / PDF, opsional)" mono={mono}>
-          <EvidenceUploader
-            value={form.evidence}
-            onChange={(ev) => set("evidence", ev)}
-            mono={mono}
-          />
-        </Field>
-      </FormSection>
-
-      {/* Tanda Tangan & QR */}
-      <div className="bg-white dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base flex items-center gap-2" style={serif}>
-            <PenLine className="w-4 h-4 text-amber-500" />
-            Tanda Tangan & Verifikasi
-          </h3>
-          <button
-            type="button"
-            onClick={() => setShowQR((v) => !v)}
-            className="text-[10px] uppercase tracking-widest flex items-center gap-1 text-zinc-500 hover:text-amber-500 transition"
-            style={mono}
-          >
-            <QrCode className="w-3 h-3" />
-            {showQR ? "Sembunyikan QR" : "Lihat QR"}
-          </button>
-        </div>
-
-        <div>
-          <div
-            className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1.5"
-            style={mono}
-          >
-            Tanda Tangan Pekerja (Yang Membuat)
+      {/* Estimasi — hero */}
+      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-zinc-950 p-5 shadow-lg shadow-amber-500/25">
+        <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-200 opacity-40 blur-2xl" />
+        <div className="relative">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide opacity-80" style={mono}>
+            <Wallet className="w-3.5 h-3.5" />
+            Estimasi Upah
           </div>
-          <SignaturePad
-            value={form.ttdPekerja}
-            onChange={(d) => set("ttdPekerja", d)}
-            mono={mono}
-          />
-        </div>
-
-        {showQR && (
-          <div className="flex items-center gap-3 bg-stone-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg p-3">
-            <div className="bg-white p-2 rounded shrink-0">
-              <QRCodeView
-                data={buildQRPayload(
-                  {
-                    id: "preview-" + Date.now().toString(36),
-                    userNama: user.nama,
-                    ...form,
-                    durasiJam: durasi,
-                    estimasiGaji: preview,
-                    status: "Draft",
-                  },
-                  { inisial: "WKI" }
-                )}
-                size={90}
-              />
-            </div>
-            <div className="text-[11px] text-zinc-500 leading-relaxed" style={mono}>
-              QR ini otomatis tercetak pada Surat Perintah dan berisi ringkasan
-              data lembur untuk verifikasi cepat oleh atasan.
-            </div>
+          <div className="text-4xl mt-1 tracking-tight" style={serif}>
+            {formatRp(preview)}
           </div>
-        )}
+          <div className="text-[11px] mt-2 opacity-70" style={mono}>
+            {durasi.toFixed(2)} jam · {KATEGORI[form.kategori]?.short} ·{" "}
+            {form.jenis} · base {formatRp(basePerJam)}/jam
+          </div>
+        </div>
       </div>
 
-      {/* Estimasi */}
-      <div className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-5">
-        <div
-          className="text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400"
-          style={mono}
+      {/* Detail tambahan — collapsible */}
+      <div className="bg-white dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowDetail((v) => !v)}
+          className="w-full p-4 flex items-center justify-between hover:bg-amber-400/5 transition"
         >
-          Estimasi Upah
-        </div>
-        <div className="text-3xl mt-1 text-amber-600 dark:text-amber-400" style={serif}>
-          {formatRp(preview)}
-        </div>
-        <div className="text-[11px] mt-1 text-zinc-500" style={mono}>
-          {durasi.toFixed(2)} JAM · {KATEGORI[form.kategori]?.short} ·{" "}
-          {form.jenis.toUpperCase()}
-        </div>
-        <div className="text-[10px] mt-0.5 text-zinc-400" style={mono}>
-          Base {formatRp(basePerJam)}/jam (gaji {formatRp(gajiPokok)} ÷ 173)
-        </div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base" style={serif}>Detail Tambahan</h3>
+            <span className="text-[10px] uppercase tracking-widest text-zinc-500" style={mono}>
+              opsional
+            </span>
+          </div>
+          <ChevronRight
+            className={`w-4 h-4 text-zinc-400 transition-transform ${
+              showDetail ? "rotate-90" : ""
+            }`}
+          />
+        </button>
+
+        {showDetail && (
+          <div className="px-5 pb-5 space-y-4 border-t border-zinc-200 dark:border-zinc-600 pt-4">
+            {!isTAD && (
+              <Field label="Bagian" mono={mono}>
+                <input
+                  value={form.bagian}
+                  onChange={(e) => set("bagian", e.target.value)}
+                  placeholder="cth. IT Support"
+                  className={inputCls}
+                />
+              </Field>
+            )}
+            {!isTAD && (
+              <Field label="Hasil" mono={mono}>
+                <textarea
+                  value={form.hasil}
+                  onChange={(e) => set("hasil", e.target.value)}
+                  placeholder="cth. 12 titik kabel terpasang, semua aktif"
+                  rows={2}
+                  className={inputCls + " resize-none"}
+                />
+              </Field>
+            )}
+            <Field label="Keterangan" mono={mono}>
+              <textarea
+                value={form.keterangan}
+                onChange={(e) => set("keterangan", e.target.value)}
+                placeholder={isTAD ? "cth. OK / izin / sakit" : "catatan tambahan"}
+                rows={2}
+                className={inputCls + " resize-none"}
+              />
+            </Field>
+            <Field
+              label={isTAD ? "Koordinator Regu" : "Penanggung Jawab"}
+              mono={mono}
+            >
+              <input
+                value={form.penanggungJawab}
+                onChange={(e) => set("penanggungJawab", e.target.value)}
+                placeholder={
+                  isPengemudi
+                    ? "cth. Wahyudi (Kepala Pengemudi)"
+                    : isWater
+                    ? "cth. Earlan S."
+                    : "cth. Rudi (Supervisor IT)"
+                }
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Bukti (foto / PDF)" mono={mono}>
+              <EvidenceUploader
+                value={form.evidence}
+                onChange={(ev) => set("evidence", ev)}
+                mono={mono}
+              />
+            </Field>
+
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <div
+                  className="text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"
+                  style={mono}
+                >
+                  <PenLine className="w-3 h-3 text-amber-500" />
+                  Tanda Tangan Pekerja
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQR((v) => !v)}
+                  className="text-[10px] uppercase tracking-widest flex items-center gap-1 text-zinc-500 hover:text-amber-500 transition"
+                  style={mono}
+                >
+                  <QrCode className="w-3 h-3" />
+                  {showQR ? "Sembunyikan QR" : "Lihat QR"}
+                </button>
+              </div>
+              <SignaturePad
+                value={form.ttdPekerja}
+                onChange={(d) => set("ttdPekerja", d)}
+                mono={mono}
+              />
+            </div>
+
+            {showQR && (
+              <div className="flex items-center gap-3 bg-stone-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg p-3">
+                <div className="bg-white p-2 rounded shrink-0">
+                  <QRCodeView
+                    data={buildQRPayload(
+                      {
+                        id: "preview-" + Date.now().toString(36),
+                        userNama: user.nama,
+                        ...form,
+                        durasiJam: durasi,
+                        estimasiGaji: preview,
+                        status: "Draft",
+                      },
+                      { inisial: "WKI" }
+                    )}
+                    size={90}
+                  />
+                </div>
+                <div className="text-[11px] text-zinc-500 leading-relaxed" style={mono}>
+                  QR tercetak pada Surat Perintah berisi ringkasan data lembur
+                  untuk verifikasi cepat oleh atasan.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <button
         disabled={!valid}
         onClick={() => onSave(form)}
-        className="w-full bg-amber-400 text-zinc-950 font-medium py-3.5 rounded-lg hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+        className="w-full bg-amber-400 text-zinc-950 font-medium py-3.5 rounded-lg hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 sticky bottom-24 shadow-lg shadow-amber-500/20"
       >
         <Plus className="w-4 h-4" strokeWidth={2.5} />
         Simpan Surat Perintah
@@ -1904,16 +2048,16 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
 }
 
 const inputCls =
-  "w-full bg-stone-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-amber-400 transition";
+  "w-full bg-zinc-50 dark:bg-zinc-900/40 border border-transparent ring-1 ring-zinc-200/70 dark:ring-white/5 rounded-xl px-4 py-3.5 text-[15px] placeholder:text-zinc-400 focus:outline-none focus:ring-amber-400 focus:border-amber-400 focus:bg-white dark:focus:bg-zinc-900 transition";
 
 function FormSection({ title, children, mono, serif }) {
   return (
-    <div className="bg-white dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 rounded-2xl p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base" style={serif}>
+    <div className="bg-white dark:bg-zinc-800/40 ring-1 ring-zinc-100 dark:ring-white/5 shadow-sm shadow-zinc-200/50 dark:shadow-black/20 rounded-3xl p-5 space-y-4">
+      {title && (
+        <h3 className="text-[13px] font-semibold tracking-wide text-zinc-400 dark:text-zinc-500">
           {title}
         </h3>
-      </div>
+      )}
       {children}
     </div>
   );
@@ -4649,12 +4793,9 @@ function ApprovalDialog({ target, currentUser, onConfirm, onCancel, serif, mono 
 function Field({ label, children, mono, required }) {
   return (
     <label className="block">
-      <span
-        className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1.5"
-        style={mono || { fontFamily: "'Geist Mono', monospace" }}
-      >
+      <span className="block text-[12px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500 mb-1.5">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-amber-500 ml-0.5">*</span>}
       </span>
       {children}
     </label>
