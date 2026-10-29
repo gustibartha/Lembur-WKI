@@ -1371,7 +1371,9 @@ function Dashboard({ user, entries, gajiPokok, setView, onViewSurat, serif, mono
     return {
       inMonth,
       totalJam: inMonth.reduce((s, e) => s + Number(e.durasiJam || 0), 0),
-      totalGaji: inMonth.reduce((s, e) => s + Number(e.estimasiGaji || 0), 0),
+      totalLibur: inMonth
+        .filter((e) => e.jenis === "Hari Libur")
+        .reduce((s, e) => s + Number(e.durasiJam || 0), 0),
       draft: inMonth.filter((e) => e.status === "Draft").length,
     };
   }, [entries]);
@@ -1405,18 +1407,13 @@ function Dashboard({ user, entries, gajiPokok, setView, onViewSurat, serif, mono
         <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-amber-200 opacity-40 blur-2xl" />
         <div className="relative">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest mb-3" style={mono}>
-            <Wallet className="w-3 h-3" />
-            Estimasi Upah Lembur
+            <Clock className="w-3 h-3" />
+            Total Jam Lembur
           </div>
           <div className="text-5xl leading-none tracking-tight" style={serif}>
-            {formatRp(m.totalGaji)}
+            {m.totalJam.toFixed(1)} <span className="text-2xl">jam</span>
           </div>
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-900/15 text-sm">
-            <div>
-              <div className="text-[9px] uppercase tracking-widest opacity-60" style={mono}>JAM</div>
-              <div className="text-lg" style={serif}>{m.totalJam.toFixed(1)}</div>
-            </div>
-            <div className="h-8 w-px bg-zinc-900/15" />
             <div>
               <div className="text-[9px] uppercase tracking-widest opacity-60" style={mono}>ENTRI</div>
               <div className="text-lg" style={serif}>{m.inMonth.length}</div>
@@ -1425,6 +1422,11 @@ function Dashboard({ user, entries, gajiPokok, setView, onViewSurat, serif, mono
             <div>
               <div className="text-[9px] uppercase tracking-widest opacity-60" style={mono}>DRAFT</div>
               <div className="text-lg" style={serif}>{m.draft}</div>
+            </div>
+            <div className="h-8 w-px bg-zinc-900/15" />
+            <div>
+              <div className="text-[9px] uppercase tracking-widest opacity-60" style={mono}>LIBUR</div>
+              <div className="text-lg" style={serif}>{(m.totalLibur ?? 0).toFixed(1)}</div>
             </div>
           </div>
         </div>
@@ -1454,9 +1456,9 @@ function Dashboard({ user, entries, gajiPokok, setView, onViewSurat, serif, mono
 
       <div className="grid grid-cols-2 gap-3">
         <InfoChip
-          icon={Wallet}
-          label="Base/jam"
-          value={formatRp(tarifPerJam(gajiPokok))}
+          icon={Clock}
+          label="Jam libur"
+          value={`${m.totalLibur.toFixed(1)} jam`}
           mono={mono}
         />
         <InfoChip
@@ -1886,20 +1888,19 @@ function InputForm({ user, gajiPokok, onSave, onCancel, serif, mono }) {
         </div>
       </FormSection>
 
-      {/* Estimasi — hero */}
+      {/* Total Jam — hero */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-amber-300 via-amber-400 to-amber-500 text-zinc-950 p-5 shadow-lg shadow-amber-500/25">
         <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-amber-200 opacity-40 blur-2xl" />
         <div className="relative">
           <div className="flex items-center gap-1.5 text-[11px] font-medium tracking-wide opacity-80" style={mono}>
-            <Wallet className="w-3.5 h-3.5" />
-            Estimasi Upah
+            <Clock className="w-3.5 h-3.5" />
+            Total Jam Lembur
           </div>
           <div className="text-4xl mt-1 tracking-tight" style={serif}>
-            {formatRp(preview)}
+            {durasi.toFixed(2)} <span className="text-xl">jam</span>
           </div>
           <div className="text-[11px] mt-2 opacity-70" style={mono}>
-            {durasi.toFixed(2)} jam · {KATEGORI[form.kategori]?.short} ·{" "}
-            {form.jenis} · base {formatRp(basePerJam)}/jam
+            {KATEGORI[form.kategori]?.short} · {form.jenis}
           </div>
         </div>
       </div>
@@ -2253,7 +2254,7 @@ function Riwayat({ entries, onDelete, onKirim, onViewEvidence, onViewSurat, seri
   const totals = useMemo(
     () => ({
       jam: filtered.reduce((s, e) => s + Number(e.durasiJam || 0), 0),
-      gaji: filtered.reduce((s, e) => s + Number(e.estimasiGaji || 0), 0),
+      entri: filtered.length,
       draft: filtered.filter((e) => e.status === "Draft").length,
     }),
     [filtered]
@@ -2312,8 +2313,8 @@ function Riwayat({ entries, onDelete, onKirim, onViewEvidence, onViewSurat, seri
       )}
 
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Jam" value={totals.jam.toFixed(1)} mono={mono} serif={serif} />
-        <Stat label="Upah" value={formatRp(totals.gaji)} mono={mono} serif={serif} small />
+        <Stat label="Total Jam" value={totals.jam.toFixed(1)} mono={mono} serif={serif} />
+        <Stat label="Entri" value={totals.entri} mono={mono} serif={serif} small />
         <Stat label="Draft" value={totals.draft} mono={mono} serif={serif} highlight />
       </div>
 
@@ -2476,14 +2477,14 @@ function EntryRow({
           )}
         </div>
         <div className="text-right shrink-0">
-          <div className="text-base text-amber-600 dark:text-amber-400" style={serif}>
+          <div className="text-lg text-amber-600 dark:text-amber-400" style={serif}>
             {Number(entry.durasiJam).toFixed(1)}
             <span className="text-[10px] text-zinc-500 ml-0.5" style={mono}>
               jam
             </span>
           </div>
-          <div className="text-[10px] text-zinc-500" style={mono}>
-            {formatRp(entry.estimasiGaji)}
+          <div className="text-[9px] uppercase tracking-widest text-zinc-400" style={mono}>
+            {entry.jenis === "Hari Libur" ? "libur" : "kerja"}
           </div>
         </div>
       </button>
@@ -2578,16 +2579,12 @@ function AdminDashboard({ user, entries, setView, onViewSurat, serif, mono }) {
         <div className="relative">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest mb-3" style={mono}>
             <Users className="w-3 h-3" />
-            Total Estimasi Upah Tim
+            Total Jam Lembur Tim
           </div>
           <div className="text-5xl leading-none tracking-tight" style={serif}>
-            {formatRp(m.totalGaji)}
+            {m.totalJam.toFixed(1)} <span className="text-2xl">jam</span>
           </div>
-          <div className="grid grid-cols-4 gap-2 mt-6 pt-4 border-t border-zinc-900/15 text-sm">
-            <div>
-              <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>JAM</div>
-              <div className="text-base" style={serif}>{m.totalJam.toFixed(1)}</div>
-            </div>
+          <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-zinc-900/15 text-sm">
             <div>
               <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>ENTRI</div>
               <div className="text-base" style={serif}>{m.inMonth.length}</div>
@@ -2748,8 +2745,6 @@ function AdminRekap({
       "Hasil",
       "Keterangan",
       "Penanggung Jawab",
-      "Gaji Pokok",
-      "Estimasi Upah",
       "Status",
       "Bukti",
     ];
@@ -2779,8 +2774,6 @@ function AdminRekap({
         clean(e.hasil),
         clean(e.keterangan),
         e.penanggungJawab || "",
-        e.gajiPokokSaat || "",
-        e.estimasiGaji,
         e.status,
         e.evidence ? e.evidence.name : "",
       ]);
@@ -2865,16 +2858,9 @@ function AdminRekap({
       </div>
 
       {/* Totals */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Stat label="Orang" value={totals.orang} mono={mono} serif={serif} />
-        <Stat label="Jam" value={totals.jam.toFixed(1)} mono={mono} serif={serif} />
-        <Stat
-          label="Upah"
-          value={formatRp(totals.gaji)}
-          mono={mono}
-          serif={serif}
-          small
-        />
+        <Stat label="Total Jam" value={totals.jam.toFixed(1)} mono={mono} serif={serif} />
         <Stat
           label="Pending"
           value={totals.pending}
@@ -2935,7 +2921,8 @@ function AdminRekap({
                     className="text-base text-amber-600 dark:text-amber-400"
                     style={serif}
                   >
-                    {formatRp(g.gaji)}
+                    {g.jam.toFixed(1)}
+                    <span className="text-[10px] text-zinc-500 ml-0.5" style={mono}>jam</span>
                   </div>
                 </div>
                 <ChevronRight
@@ -3032,19 +3019,14 @@ function PayrollDashboard({ user, entries, setView, serif, mono }) {
         <div className="absolute -top-12 -right-12 w-40 h-40 rounded-full bg-amber-200 opacity-40 blur-2xl" />
         <div className="relative">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest mb-3" style={mono}>
-            <FileSpreadsheet className="w-3 h-3" />
-            Total Upah Bulan Ini
+            <Clock className="w-3 h-3" />
+            Total Jam Bulan Ini
           </div>
           <div className="text-5xl leading-none tracking-tight" style={serif}>
-            {formatRp(stats.total)}
+            {(stats.totalJamLembur + stats.totalJamPiket).toFixed(1)}{" "}
+            <span className="text-2xl">jam</span>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-zinc-900/15 text-sm">
-            <div>
-              <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>JAM TOTAL</div>
-              <div className="text-base" style={serif}>
-                {(stats.totalJamLembur + stats.totalJamPiket).toFixed(1)}
-              </div>
-            </div>
             <div>
               <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>ENTRI</div>
               <div className="text-base" style={serif}>
@@ -3054,6 +3036,10 @@ function PayrollDashboard({ user, entries, setView, serif, mono }) {
             <div>
               <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>ORANG</div>
               <div className="text-base" style={serif}>{stats.orang}</div>
+            </div>
+            <div>
+              <div className="opacity-60 text-[9px] uppercase tracking-widest" style={mono}>PIKET</div>
+              <div className="text-base" style={serif}>{stats.totalJamPiket.toFixed(1)}</div>
             </div>
           </div>
         </div>
@@ -3067,10 +3053,10 @@ function PayrollDashboard({ user, entries, setView, serif, mono }) {
             Lembur
           </div>
           <div className="text-2xl text-amber-600 dark:text-amber-400" style={serif}>
-            {formatRp(stats.totalUpahLembur)}
+            {stats.totalJamLembur.toFixed(1)} <span className="text-sm">jam</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-0.5" style={mono}>
-            {stats.totalJamLembur.toFixed(1)} JAM · {stats.lemburEntries.length} ENTRI
+            {stats.lemburEntries.length} ENTRI
           </div>
         </div>
         <div className="bg-white/80 dark:bg-zinc-700/50 backdrop-blur border border-zinc-200 dark:border-zinc-600 rounded-2xl p-4">
@@ -3079,10 +3065,10 @@ function PayrollDashboard({ user, entries, setView, serif, mono }) {
             Piket
           </div>
           <div className="text-2xl text-rose-600 dark:text-rose-400" style={serif}>
-            {formatRp(stats.totalUpahPiket)}
+            {stats.totalJamPiket.toFixed(1)} <span className="text-sm">jam</span>
           </div>
           <div className="text-[11px] text-zinc-500 mt-0.5" style={mono}>
-            {stats.totalJamPiket.toFixed(1)} JAM · {stats.piketEntries.length} ENTRI
+            {stats.piketEntries.length} ENTRI
           </div>
         </div>
       </div>
@@ -3098,7 +3084,7 @@ function PayrollDashboard({ user, entries, setView, serif, mono }) {
           <div className="text-left">
             <div className="text-sm font-medium">Rekap & Download Excel</div>
             <div className="text-xs text-zinc-500">
-              Per karyawan · jam & rupiah · filter periode
+              Per karyawan · total jam · filter periode
             </div>
           </div>
         </div>
@@ -3187,10 +3173,10 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
     if (filtered.length === 0) return;
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Ringkasan per karyawan
+    // Sheet 1: Ringkasan per karyawan (jam saja)
     const summaryRows = [
       [
-        "REKAP PAYROLL — LEMBUR & PIKET",
+        "REKAP JAM LEMBUR & PIKET",
       ],
       [
         `Periode: ${
@@ -3206,22 +3192,18 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
         "Nama",
         "Kategori",
         "Jam Lembur",
-        "Upah Lembur (Rp)",
         "Jam Piket",
-        "Upah Piket (Rp)",
         "Total Jam",
-        "Total Upah (Rp)",
+        "Jumlah Entri",
       ],
       ...perEmployee.map((g, i) => [
         i + 1,
         g.userNama,
         KATEGORI[g.kategori]?.short || "SPL",
         Number(g.lemburJam.toFixed(2)),
-        Math.round(g.lemburUpah),
         Number(g.piketJam.toFixed(2)),
-        Math.round(g.piketUpah),
         Number(g.totalJam.toFixed(2)),
-        Math.round(g.totalUpah),
+        g.entri.length,
       ]),
       [],
       [
@@ -3229,11 +3211,9 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
         "",
         "",
         Number(totals.lemburJam.toFixed(2)),
-        Math.round(totals.lemburUpah),
         Number(totals.piketJam.toFixed(2)),
-        Math.round(totals.piketUpah),
         Number(totals.totalJam.toFixed(2)),
-        Math.round(totals.totalUpah),
+        filtered.length,
       ],
     ];
     const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
@@ -3242,17 +3222,15 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
       { wch: 22 },
       { wch: 14 },
       { wch: 12 },
-      { wch: 18 },
       { wch: 12 },
-      { wch: 18 },
       { wch: 12 },
-      { wch: 18 },
+      { wch: 12 },
     ];
     // Merge title row
-    wsSummary["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
+    wsSummary["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
     XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan");
 
-    // Sheet 2: Detail entri
+    // Sheet 2: Detail entri (jam saja)
     const detailRows = [
       [
         "No",
@@ -3266,7 +3244,6 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
         "Jenis Hari",
         "Pekerjaan",
         "Keterangan",
-        "Upah (Rp)",
         "Status",
       ],
       ...filtered
@@ -3291,7 +3268,6 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
           e.jenis || "",
           (e.pekerjaan || e.deskripsi || "").toString(),
           (e.keterangan || "").toString(),
-          Math.round(Number(e.estimasiGaji || 0)),
           e.status,
         ]),
     ];
@@ -3308,14 +3284,13 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
       { wch: 12 },
       { wch: 32 },
       { wch: 28 },
-      { wch: 15 },
       { wch: 12 },
     ];
     XLSX.utils.book_append_sheet(wb, wsDetail, "Detail");
 
     const periodLabel = period === "semua" ? "semua" : period;
     const datestamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `rekap-payroll-${periodLabel}-${datestamp}.xlsx`);
+    XLSX.writeFile(wb, `rekap-jam-${periodLabel}-${datestamp}.xlsx`);
   };
 
   return (
@@ -3326,7 +3301,7 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
             Rekap Payroll
           </h2>
           <p className="text-sm text-zinc-500 mt-1">
-            Jam & rupiah · per karyawan · download Excel.
+            Total jam · per karyawan · download Excel.
           </p>
         </div>
         <button
@@ -3412,10 +3387,7 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
             Lembur
           </div>
           <div className="text-xl text-amber-600 dark:text-amber-400" style={serif}>
-            {formatRp(totals.lemburUpah)}
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-0.5" style={mono}>
-            {totals.lemburJam.toFixed(1)} JAM
+            {totals.lemburJam.toFixed(1)} <span className="text-sm">jam</span>
           </div>
         </div>
         <div className="bg-white/80 dark:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-600 rounded-2xl p-4">
@@ -3427,10 +3399,7 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
             Piket
           </div>
           <div className="text-xl text-rose-600 dark:text-rose-400" style={serif}>
-            {formatRp(totals.piketUpah)}
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-0.5" style={mono}>
-            {totals.piketJam.toFixed(1)} JAM
+            {totals.piketJam.toFixed(1)} <span className="text-sm">jam</span>
           </div>
         </div>
       </div>
@@ -3438,15 +3407,15 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
       <div className="bg-gradient-to-br from-amber-400/10 to-amber-500/5 border border-amber-400/30 rounded-2xl p-4 flex items-center justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400" style={mono}>
-            Total Keseluruhan
+            Total Jam Keseluruhan
           </div>
           <div className="text-2xl text-amber-600 dark:text-amber-400" style={serif}>
-            {formatRp(totals.totalUpah)}
+            {totals.totalJam.toFixed(1)} <span className="text-base">jam</span>
           </div>
         </div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-widest text-zinc-500" style={mono}>
-            {totals.totalJam.toFixed(1)} JAM · {totals.orang} ORANG
+            {totals.orang} ORANG
           </div>
           <div className="text-[10px] uppercase tracking-widest text-zinc-500 mt-1" style={mono}>
             {filtered.length} ENTRI
@@ -3492,19 +3461,13 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
                     <div>
                       <span className="text-amber-600 dark:text-amber-400">LEMBUR</span>{" "}
                       <span style={serif} className="text-zinc-700 dark:text-zinc-200">
-                        {g.lemburJam.toFixed(1)}j
-                      </span>{" "}
-                      · <span style={serif} className="text-amber-600 dark:text-amber-400">
-                        {formatRp(g.lemburUpah)}
+                        {g.lemburJam.toFixed(1)} jam
                       </span>
                     </div>
                     <div>
                       <span className="text-rose-500 dark:text-rose-300">PIKET</span>{" "}
                       <span style={serif} className="text-zinc-700 dark:text-zinc-200">
-                        {g.piketJam.toFixed(1)}j
-                      </span>{" "}
-                      · <span style={serif} className="text-rose-600 dark:text-rose-400">
-                        {formatRp(g.piketUpah)}
+                        {g.piketJam.toFixed(1)} jam
                       </span>
                     </div>
                   </div>
@@ -3514,13 +3477,14 @@ function PayrollRekap({ entries, gajiPokok, onViewSurat, onViewEvidence, serif, 
                     className="text-base text-amber-600 dark:text-amber-400"
                     style={serif}
                   >
-                    {formatRp(g.totalUpah)}
+                    {g.totalJam.toFixed(1)}
+                    <span className="text-[10px] text-zinc-500 ml-0.5" style={mono}>jam</span>
                   </div>
                   <div
                     className="text-[10px] text-zinc-500 mt-0.5"
                     style={mono}
                   >
-                    {g.totalJam.toFixed(1)} JAM · {g.entri.length} ENTRI
+                    {g.entri.length} ENTRI
                   </div>
                 </div>
                 <ChevronRight
@@ -3776,61 +3740,6 @@ function Profil({
         </FormSection>
       )}
 
-      <FormSection title="Pengaturan Upah" mono={mono} serif={serif}>
-        <Field label="Gaji Pokok Saya (Rp)" mono={mono}>
-          <input
-            type="number"
-            min="0"
-            step="100000"
-            value={gpUserDraft}
-            onChange={(e) => setGpUserDraft(e.target.value)}
-            onBlur={saveUserGp}
-            className={inputCls}
-            style={mono}
-          />
-        </Field>
-        <div className="bg-stone-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-600 rounded-lg p-3 text-[11px] space-y-1">
-          <div className="flex items-center justify-between" style={mono}>
-            <span className="text-zinc-500">BASE / JAM</span>
-            <span className="text-zinc-700 dark:text-zinc-300">
-              {formatRp(tarifPerJam(effectiveGp))}
-            </span>
-          </div>
-          <div className="flex items-center justify-between" style={mono}>
-            <span className="text-zinc-500">FORMULA</span>
-            <span className="text-zinc-700 dark:text-zinc-300">
-              {formatRp(effectiveGp)} ÷ 173
-            </span>
-          </div>
-        </div>
-        <div className="text-[11px] text-zinc-500 leading-relaxed">
-          Mengikuti rumus Excel PERHITUNGAN LEMBUR TAD & OFFICE:
-          <br />• <b>SPL Staff (office)</b>: jam × base, max 8 jam/hari
-          <br />• <b>Water Intake / Pengemudi (TAD)</b>: jam ke-1 ×1.5, lanjut ×2;
-          libur tier 1.5/9.5/+4 per jam
-        </div>
-
-        {user.peran === "Atasan" && (
-          <>
-            <div className="border-t border-zinc-200 dark:border-zinc-600 my-1" />
-            <Field label="Gaji Pokok Default Karyawan Baru (Rp)" mono={mono}>
-              <input
-                type="number"
-                min="0"
-                step="100000"
-                value={gpGlobalDraft}
-                onChange={(e) => setGpGlobalDraft(e.target.value)}
-                onBlur={() =>
-                  setGajiPokok(Number(gpGlobalDraft) || GAJI_POKOK_DEFAULT)
-                }
-                className={inputCls}
-                style={mono}
-              />
-            </Field>
-          </>
-        )}
-      </FormSection>
-
       <button
         onClick={onLogout}
         className="w-full border border-zinc-300 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 py-3 rounded-lg hover:border-red-400 hover:text-red-500 transition flex items-center justify-center gap-2"
@@ -3994,10 +3903,10 @@ function SuratView({ entry, company, currentUser, onApprove, onClose, mono, seri
             <SuratRow label="KETERANGAN" value={entry.keterangan} multiline />
           </SuratTable>
 
-          {/* Ringkasan upah */}
-          <div className="mt-4 grid grid-cols-3 gap-3 text-xs surat-summary">
+          {/* Ringkasan durasi */}
+          <div className="mt-4 grid grid-cols-2 gap-3 text-xs surat-summary">
             <div className="border border-zinc-300 rounded p-2 text-center">
-              <div className="text-zinc-500">Durasi</div>
+              <div className="text-zinc-500">Total Durasi</div>
               <div className="font-semibold text-base mt-0.5">
                 {Number(entry.durasiJam || 0).toFixed(2)} jam
               </div>
@@ -4005,12 +3914,6 @@ function SuratView({ entry, company, currentUser, onApprove, onClose, mono, seri
             <div className="border border-zinc-300 rounded p-2 text-center">
               <div className="text-zinc-500">Jenis Hari</div>
               <div className="font-semibold text-base mt-0.5">{entry.jenis}</div>
-            </div>
-            <div className="border border-zinc-300 rounded p-2 text-center">
-              <div className="text-zinc-500">Estimasi Upah</div>
-              <div className="font-semibold text-base mt-0.5">
-                {formatRp(entry.estimasiGaji)}
-              </div>
             </div>
           </div>
 
@@ -4742,7 +4645,7 @@ function ApprovalDialog({ target, currentUser, onConfirm, onCancel, serif, mono 
               <div className="font-medium">{target.entry.userNama}</div>
               <div className="text-xs text-zinc-500 mt-0.5">
                 {target.entry.pekerjaan} · {Number(target.entry.durasiJam).toFixed(2)} jam ·{" "}
-                {formatRp(target.entry.estimasiGaji)}
+                {target.entry.jenis}
               </div>
             </div>
           )}
